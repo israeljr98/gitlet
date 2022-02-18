@@ -30,7 +30,7 @@ Gitlet is a tiny, simpler version of the Git version control system, written ent
 - ### checkout:
   - **Description**: There are 3 possible use cases for this command.
     1. Takes the version of file as it exists in the head commit, and places it in the current working directory, overwriting the version that is there already if present. It does not stage the new version. <br> **Usage 1**: <br> `java gitlet.Main checkout -- <file name>` ![](gitlet_gifs/gitlet_checkout_dash.gif)
-    2. Takes the version of file as it exists in the commit with the given ID, and places it in the current working directory, overwriting the version that is there already if present. It does not stage the new version. <br> **Usage 2**: <br> `java gitlet.Main checkout <commit ID> -- <file name>` ![](gitlet/gitlet_gifs/gitlet_checkout_commitid.gif)
+    2. Takes the version of file as it exists in the commit with the given ID, and places it in the current working directory, overwriting the version that is there already if present. It does not stage the new version. <br> **Usage 2**: <br> `java gitlet.Main checkout <commit ID> -- <file name>` ![](gitlet_gifs/gitlet_checkout_commitid.gif)
     3. Takes all files in the commit at the head of the given branch, and places them in the current working directory, overwriting the versions of the files that are already there if they exist. Also, at the end of this command, the given branch will now be considered the current branch (HEAD), and the staging area is cleared. <br> **Usage 3**: <br> `java gitlet.Main checkout <branch name>` ![](gitlet_gifs/gitlet_checkout_branch.gif)
 - ### find:
   - **Description**: Prints out the log entries of all the commits that share the given commit message.
