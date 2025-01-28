@@ -5,7 +5,7 @@ import java.io.File;
 import java.io.Serializable;
 import java.util.*;
 
-import javax.lang.model.util.ElementScanner6;
+import static gitlet.Utils.restrictedDelete;
 
 /**
  * A Gitlet version-control system and all of its functions.
@@ -117,20 +117,20 @@ public class Gitlet implements Serializable {
         if (!newAdd.getLocation().exists()) {
             throw Utils.error("File does not exist.");
         }
-        if (_stage.forRem().containsKey(filename)) {
-            _stage.forRem().remove(filename);
+        if (_stage.forRemoval().containsKey(filename)) {
+            _stage.forRemoval().remove(filename);
         }
         if (_hEAD.getFiles().containsKey(filename)) {
             if (_hEAD.getFiles().get(filename).getSha()
                     .equals(newAdd.getSha())) {
-                if (_stage.forAdd().containsKey(filename)) {
-                    _stage.forAdd().remove(filename);
+                if (_stage.forAddition().containsKey(filename)) {
+                    _stage.forAddition().remove(filename);
                 }
                 saveGitlet();
                 return;
             }
         }
-        _stage.forAdd().put(filename, newAdd);
+        _stage.forAddition().put(filename, newAdd);
         saveGitlet();
     }
 
@@ -145,22 +145,23 @@ public class Gitlet implements Serializable {
         }
         boolean changesMade = false;
         Blob rem = null;
-        if (!_stage.forAdd().containsKey(filename)
-                && !_hEAD.getFiles().containsKey(filename)) {
-            throw Utils.error("No reason to remove the file.");
-        }
-        if (_stage.forAdd().containsKey(filename)) {
-            _stage.forAdd().remove(filename);
+
+        if (_stage.forAddition().containsKey(filename)) {
+            _stage.forAddition().remove(filename);
             changesMade = true;
         } else if (_hEAD.getFiles().containsKey(filename)) {
             rem = _hEAD.getFiles().get(filename);
-            _stage.forRem().put(filename, rem);
-            Utils.restrictedDelete(filename);
+            _stage.forRemoval().put(filename, rem);
+            restrictedDelete(filename);
             changesMade = true;
+        } else if (!_hEAD.getFiles().containsKey(filename)) {
+            rem = _hEAD.getFiles().get(filename);
+            _stage.forRemoval().put(filename, rem);
+            changesMade = true;
+        } else {
+            throw Utils.error("No reason to remove the file.");
         }
-        if (changesMade) {
-            saveGitlet();
-        }
+        saveGitlet();
     }
 
     /**
@@ -175,14 +176,14 @@ public class Gitlet implements Serializable {
         if (msg.isEmpty()) {
             throw Utils.error("Please enter a commit message.");
         }
-        if (_stage.forAdd().isEmpty() && _stage.forRem().isEmpty()) {
+        if (_stage.forAddition().isEmpty() && _stage.forRemoval().isEmpty()) {
             throw Utils.error("No changes added to the commit.");
         }
         Commit prev = _commits.get(_headCommit);
-        HashMap<String, Blob> stagedAdd = new HashMap<>(_stage.forAdd());
+        HashMap<String, Blob> stagedAdd = new HashMap<>(_stage.forAddition());
         HashMap<String, Blob> pFiles = new HashMap<>(prev.getFiles());
         HashMap<String, Blob> updated = new HashMap<>();
-        for (String rem : _stage.forRem().keySet()) {
+        for (String rem : _stage.forRemoval().keySet()) {
             pFiles.remove(rem);
         }
         updated.putAll(pFiles);
@@ -352,10 +353,7 @@ public class Gitlet implements Serializable {
         if (!desired.getFiles().containsKey(filename)) {
             throw Utils.error("File does not exist in that commit");
         }
-        Blob newVersion = desired.getFiles().get(filename);
-        byte[] newContents = newVersion.getContents();
-        File newFile = Utils.join(_currDir, filename);
-        Utils.writeContents(newFile, newContents);
+        checkoutFile(filename, desired);
         saveGitlet();
     }
 
@@ -385,14 +383,11 @@ public class Gitlet implements Serializable {
             }
             if (_hEAD.getFiles().containsKey(file)
                     && !desiredC.getFiles().containsKey(file)) {
-                Utils.restrictedDelete(file);
+                restrictedDelete(file);
             }
         }
         for (String name : desiredC.getFiles().keySet()) {
-            Blob bVersion = desiredC.getFiles().get(name);
-            byte[] bContents = bVersion.getContents();
-            File newFile = Utils.join(_currDir, name);
-            Utils.writeContents(newFile, bContents);
+            checkoutFile(name, desiredC);
         }
         _headbranch = branch;
         _headCommit = desiredC.getSHA();
@@ -462,7 +457,7 @@ public class Gitlet implements Serializable {
             }
             if (_hEAD.getFiles().containsKey(file)
                     && !reset.getFiles().containsKey(file)) {
-                Utils.restrictedDelete(file);
+                restrictedDelete(file);
             }
         }
         for (String name : reset.getFiles().keySet()) {
@@ -496,7 +491,6 @@ public class Gitlet implements Serializable {
 
         String givenCommitID = _branches.get(branchName).getID();
         String splitPointId = findSplitPoint(_headCommit, givenCommitID);
-        System.out.println(splitPointId);
         if (splitPointId.equals(givenCommitID)) {
             throw Utils.error("Given branch is an ancestor of the current branch.");
         }
@@ -513,59 +507,88 @@ public class Gitlet implements Serializable {
         HashMap<String, Blob> givenBranchFiles = givenBranchCommit.getFiles();
         HashMap<String, Blob> splitPointFiles = splitPointCommit.getFiles();
 
-        givenBranchFiles
-                .forEach((filename, contents) -> {
-            // is the file new?
-            if (splitPointFiles.containsKey(filename)) {
-                // Has the file been modified in the given branch since the split point?
-                if (!splitPointFiles.get(filename).getSha()
-                        .equals(contents.getSha())) {
-                    // Has the file been modified in the current branch since the split point?
-                    if (currentBranchFiles.get(filename).getSha()
-                            .equals(contents.getSha())) {
-                        byte[] givenBranchFile = contents.getContents();
-                        File newFile = Utils.join(_currDir, filename);
-                        Utils.writeContents(newFile, givenBranchFile);
-                        _stage.forAdd().put(filename, contents);
-                        // If the file was modified in the current branch, do nothing (it stays as-is)
+        Set<String> allFiles = new HashSet<>();
+        allFiles.addAll(splitPointFiles.keySet());
+        allFiles.addAll(currentBranchFiles.keySet());
+        allFiles.addAll(givenBranchFiles.keySet());
+
+        for (String filename : allFiles) {
+            boolean inSplitPoint = splitPointFiles.containsKey(filename);
+            boolean inCurrentBranch = currentBranchFiles.containsKey(filename);
+            boolean inGivenBranch = givenBranchFiles.containsKey(filename);
+
+            if (inSplitPoint) {
+                // Handle files present in the split point.
+//                handleSplitPointFile(filename, splitPointFiles, currentBranchFiles, givenBranchFiles);
+                String splitPointFileContents = splitPointFiles.get(filename).getSha();
+                if (!inGivenBranch && inCurrentBranch) {
+                    if (splitPointFileContents.equals(currentBranchFiles.get(filename).getSha())) {
+                        _stage.forRemoval().put(filename, currentBranchFiles.get(filename));
+                        restrictedDelete(filename);
                     } else {
-                        String conflictFound = createMergeConflictFile(contents, currentBranchFiles.get(filename));
-                        byte[] conflictFoundBytes = conflictFound.getBytes();
-                        File newFile = Utils.join(_currDir, filename);
-                        Utils.writeContents(newFile, conflictFoundBytes);
-                        Blob conflictedFileBlob = new Blob(filename, _currDir);
-                        _stage.forAdd().put(filename, conflictedFileBlob);
-                        _mergeConflictFound = true;
+                        handleMergeConflict(
+                                currentBranchFiles.get(filename),
+                                givenBranchFiles.get(filename),
+                                filename);
+                    }
+                }
+                if (inCurrentBranch && inGivenBranch) {
+                    String currentBranchFileContents = currentBranchFiles.get(filename).getSha();
+                    String givenBranchFileContents = givenBranchFiles.get(filename).getSha();
+
+                    // If file has been modified in the given branch...
+                    if (!splitPointFileContents.equals(givenBranchFileContents)) {
+                        // but NOT in the current branch...
+                        if (splitPointFileContents.equals(currentBranchFileContents)) {
+                            System.out.println("Merging " + filename);
+                            checkoutFile(filename, givenBranchCommit);
+                            _stage.forAddition().put(filename, givenBranchFiles.get(filename));
+                        } else if (!currentBranchFileContents.equals(givenBranchFileContents)) {
+                            handleMergeConflict(
+                                    currentBranchFiles.get(filename),
+                                    givenBranchFiles.get(filename),
+                                    filename);
+                        }
                     }
                 }
             } else {
-                boolean presentInCurrentBranch = currentBranchFiles.containsKey(filename);
-                boolean presentInGivenBranch = givenBranchFiles.containsKey(filename);
-                if (!presentInCurrentBranch && presentInGivenBranch) {
-                    checkout(givenCommitID,"--", filename);
-                    _stage.forAdd().put(filename, contents);
+                // Handle files not in the split point (new files).
+//                handleNewFile(filename, currentBranchFiles, givenBranchFiles);
+                if (!inCurrentBranch && inGivenBranch) {
+                    checkoutFile(filename, givenBranchCommit);
+                    _stage.forAddition().put(filename, givenBranchFiles.get(filename));
+                }
+                if (inCurrentBranch && inGivenBranch) {
+                    if (!currentBranchFiles.get(filename).getSha()
+                            .equals(givenBranchFiles.get(filename).getSha())) {
+                        handleMergeConflict(
+                                currentBranchFiles.get(filename),
+                                givenBranchFiles.get(filename),
+                                filename);
+                    }
                 }
             }
-        });
-
-        splitPointFiles
-                .forEach((filename, contents) -> {
-                    boolean presentInCurrentBranch = currentBranchFiles.containsKey(filename);
-                    boolean presentInGivenBranch = givenBranchFiles.containsKey(filename);
-                    boolean unchangedInCurrentBranch = currentBranchFiles.get(filename).getSha()
-                            .equals(contents.getSha());
-                    boolean unchangedInGivenBranch = givenBranchFiles.get(filename).getSha()
-                            .equals(contents.getSha());
-                    if (unchangedInCurrentBranch && !presentInGivenBranch) {
-                        _stage.forRem().put(filename, contents);
-                        Utils.restrictedDelete(filename);
-                    }
-                });
+        }
         commit("Merged " + branchName + " into " + _headbranch + ".", givenCommitID);
         if (_mergeConflictFound) {
             System.out.println("Encountered a merge conflict.");
             _mergeConflictFound = false;
         }
+//        saveGitlet();
+    }
+
+    private void checkoutFile(String filename, Commit givenBranchCommit) {
+        Blob newVersion = givenBranchCommit.getFiles().get(filename);
+        byte[] newContents = newVersion.getContents();
+        File newFile = Utils.join(_currDir, filename);
+        Utils.writeContents(newFile, newContents);
+    }
+
+    private void handleMergeConflict(Blob currBlob, Blob givenBlob, String filename) {
+        String conflictedFile = createMergeConflictFile(currBlob, givenBlob);
+        byte[] newContents = conflictedFile.getBytes();
+        File newFile = Utils.join(_currDir, filename);
+        Utils.writeContents(newFile, newContents);
     }
 
     public String createMergeConflictFile(Blob b1, Blob b2) {
