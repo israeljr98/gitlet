@@ -143,21 +143,19 @@ public class Gitlet implements Serializable {
         if (!_initHappened) {
             throw Utils.error("Not in an initialized Gitlet directory.");
         }
-        boolean changesMade = false;
         Blob rem = null;
 
         if (_stage.forAddition().containsKey(filename)) {
             _stage.forAddition().remove(filename);
-            changesMade = true;
-        } else if (_hEAD.getFiles().containsKey(filename)) {
+        }
+        else if (_hEAD.getFiles().containsKey(filename)) {
             rem = _hEAD.getFiles().get(filename);
             _stage.forRemoval().put(filename, rem);
             restrictedDelete(filename);
-            changesMade = true;
-        } else if (!_hEAD.getFiles().containsKey(filename)) {
+        }
+        if (!_hEAD.getFiles().containsKey(filename)) {
             rem = _hEAD.getFiles().get(filename);
             _stage.forRemoval().put(filename, rem);
-            changesMade = true;
         } else {
             throw Utils.error("No reason to remove the file.");
         }
@@ -486,18 +484,13 @@ public class Gitlet implements Serializable {
         if (!_stage.isEmpty()) {
             throw Utils.error("You have uncommitted changes.");
         }
+
+
 //        setAncestors(_headCommit);
 //        printAncestors(_headCommit);
 
         String givenCommitID = _branches.get(branchName).getID();
         String splitPointId = findSplitPoint(_headCommit, givenCommitID);
-        if (splitPointId.equals(givenCommitID)) {
-            throw Utils.error("Given branch is an ancestor of the current branch.");
-        }
-        if (splitPointId.equals(_headCommit)) {
-            checkoutBranch(branchName);
-            throw Utils.error("Current branch fast-forwarded.");
-        }
 
         Commit currentBranchCommit = _commits.get(_headCommit);
         Commit givenBranchCommit = _commits.get(givenCommitID);
@@ -507,10 +500,30 @@ public class Gitlet implements Serializable {
         HashMap<String, Blob> givenBranchFiles = givenBranchCommit.getFiles();
         HashMap<String, Blob> splitPointFiles = splitPointCommit.getFiles();
 
+        List<String> filesinDir = Utils.plainFilenamesIn(_currDir);
+        for (String file : filesinDir) {
+            if (!_hEAD.getFiles().containsKey(file)
+                    && givenBranchFiles.containsKey(file)) {
+                if (!_stage.forAddition().containsKey(file)) {
+                    throw Utils.error("There is an untracked file in the way;"
+                            + " delete it or add and commit it first.");
+                }
+            }
+
+        }
+
         Set<String> allFiles = new HashSet<>();
         allFiles.addAll(splitPointFiles.keySet());
         allFiles.addAll(currentBranchFiles.keySet());
         allFiles.addAll(givenBranchFiles.keySet());
+
+        if (splitPointId.equals(givenCommitID)) {
+            throw Utils.error("Given branch is an ancestor of the current branch.");
+        }
+        if (splitPointId.equals(_headCommit)) {
+            checkoutBranch(branchName);
+            throw Utils.error("Current branch fast-forwarded.");
+        }
 
         for (String filename : allFiles) {
             boolean inSplitPoint = splitPointFiles.containsKey(filename);
