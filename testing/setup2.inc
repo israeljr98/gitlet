@@ -1,8 +1,4 @@
-# Initialize and add two files.
-I prelude1.inc
-+ f.txt wug.txt
-+ g.txt notwug.txt
-> add g.txt
-<<<
-> add f.txt
+# Set up one commit with two files.
+I setup1.inc
+> commit "Two files"
 <<<

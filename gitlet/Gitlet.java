@@ -139,26 +139,58 @@ public class Gitlet implements Serializable {
      * If the head commit is tracking the file, remove it
      * from the working directory and stage it for removal.
      */
+//    public void rm(String filename) {
+//        if (!_initHappened) {
+//            throw Utils.error("Not in an initialized Gitlet directory.");
+//        }
+//        Blob rem = null;
+//
+//        if (_stage.forAddition().containsKey(filename)) {
+//            _stage.forAddition().remove(filename);
+//        }
+//        else if (_hEAD.getFiles().containsKey(filename)) {
+//            rem = _hEAD.getFiles().get(filename);
+//            _stage.forRemoval().put(filename, rem);
+//            File f = new File(_currDir, filename);
+//            restrictedDelete(f);
+//        }
+//        else if (!_hEAD.getFiles().containsKey(filename)) {
+//            rem = _hEAD.getFiles().get(filename);
+//            _stage.forRemoval().put(filename, rem);
+//            File f = Utils.join(_currDir, filename);
+//            Utils.restrictedDelete(f);
+//        }
+//        else {
+//            throw Utils.error("No reason to remove the file.");
+//        }
+//        saveGitlet();
+//    }
+
     public void rm(String filename) {
         if (!_initHappened) {
             throw Utils.error("Not in an initialized Gitlet directory.");
         }
-        Blob rem = null;
 
         if (_stage.forAddition().containsKey(filename)) {
             _stage.forAddition().remove(filename);
         }
-        else if (_hEAD.getFiles().containsKey(filename)) {
-            rem = _hEAD.getFiles().get(filename);
+        if (_hEAD.getFiles().containsKey(filename)) {
+            Blob rem = _hEAD.getFiles().get(filename);
             _stage.forRemoval().put(filename, rem);
-            restrictedDelete(filename);
+            String CWD = System.getProperty("user.dir");
+            File f = Utils.join(CWD, filename);
+            Utils.restrictedDelete(f);
+
+
         }
-        if (!_hEAD.getFiles().containsKey(filename)) {
-            rem = _hEAD.getFiles().get(filename);
-            _stage.forRemoval().put(filename, rem);
-        } else {
+//        else if (!_hEAD.getFiles().containsKey(filename)) {
+//            Blob rem = _hEAD.getFiles().get(filename);
+//            _stage.forRemoval().put(filename, rem);
+//        }
+        else {
             throw Utils.error("No reason to remove the file.");
         }
+
         saveGitlet();
     }
 
@@ -370,29 +402,72 @@ public class Gitlet implements Serializable {
         if (branch.equals(_headbranch)) {
             throw Utils.error("No need to checkout the current branch.");
         }
+
         Branch desiredB = _branches.get(branch);
         Commit desiredC = _commits.get(desiredB.getID());
         List<String> filesinDir = Utils.plainFilenamesIn(_currDir);
+
+        // Check for untracked files that would be overwritten
         for (String file : filesinDir) {
-            if (!_hEAD.getFiles().containsKey(file)
-                    && desiredC.getFiles().containsKey(file)) {
-                throw Utils.error("There is an untracked file in the way;"
-                        + " delete it or add and commit it first.");
+            boolean inCurrent = _hEAD.getFiles().containsKey(file);
+            boolean inDesired = desiredC.getFiles().containsKey(file);
+
+            if (!inCurrent && inDesired) {
+                throw Utils.error("There is an untracked file in the way; delete it or add and commit it first.");
             }
-            if (_hEAD.getFiles().containsKey(file)
-                    && !desiredC.getFiles().containsKey(file)) {
+        }
+
+        // Delete files that exist in current commit but do not exist in the target commit
+        for (String file : _hEAD.getFiles().keySet()) {
+            if (!desiredC.getFiles().containsKey(file)) {
                 restrictedDelete(file);
             }
         }
+
+        // Write files from the new branch into the working directory
         for (String name : desiredC.getFiles().keySet()) {
             checkoutFile(name, desiredC);
         }
+
         _headbranch = branch;
         _headCommit = desiredC.getSHA();
         _hEAD = desiredC;
         _stage.clean();
         saveGitlet();
     }
+//    public void checkoutBranch(String branch) {
+//        if (!_initHappened) {
+//            throw Utils.error("Not in an initialized Gitlet directory.");
+//        }
+//        if (!_branches.containsKey(branch)) {
+//            throw Utils.error("No such branch exists.");
+//        }
+//        if (branch.equals(_headbranch)) {
+//            throw Utils.error("No need to checkout the current branch.");
+//        }
+//        Branch desiredB = _branches.get(branch);
+//        Commit desiredC = _commits.get(desiredB.getID());
+//        List<String> filesinDir = Utils.plainFilenamesIn(_currDir);
+//        for (String file : filesinDir) {
+//            if (!_hEAD.getFiles().containsKey(file)
+//                    && desiredC.getFiles().containsKey(file)) {
+//                throw Utils.error("There is an untracked file in the way;"
+//                        + " delete it or add and commit it first.");
+//            }
+//            if (_hEAD.getFiles().containsKey(file)
+//                    && !desiredC.getFiles().containsKey(file)) {
+//                restrictedDelete(file);
+//            }
+//        }
+//        for (String name : desiredC.getFiles().keySet()) {
+//            checkoutFile(name, desiredC);
+//        }
+//        _headbranch = branch;
+//        _headCommit = desiredC.getSHA();
+//        _hEAD = desiredC;
+//        _stage.clean();
+//        saveGitlet();
+//    }
 
     /**
      * Creates a new branch with BRANCHNAME and points it
@@ -537,7 +612,10 @@ public class Gitlet implements Serializable {
                 if (!inGivenBranch && inCurrentBranch) {
                     if (splitPointFileContents.equals(currentBranchFiles.get(filename).getSha())) {
                         _stage.forRemoval().put(filename, currentBranchFiles.get(filename));
-                        restrictedDelete(filename);
+                        String CWD = System.getProperty("user.dir");
+                        File f = Utils.join(CWD, filename);
+                        Utils.restrictedDelete(f);
+
                     } else {
                         handleMergeConflict(
                                 currentBranchFiles.get(filename),
@@ -553,7 +631,6 @@ public class Gitlet implements Serializable {
                     if (!splitPointFileContents.equals(givenBranchFileContents)) {
                         // but NOT in the current branch...
                         if (splitPointFileContents.equals(currentBranchFileContents)) {
-                            System.out.println("Merging " + filename);
                             checkoutFile(filename, givenBranchCommit);
                             _stage.forAddition().put(filename, givenBranchFiles.get(filename));
                         } else if (!currentBranchFileContents.equals(givenBranchFileContents)) {
@@ -587,7 +664,7 @@ public class Gitlet implements Serializable {
             System.out.println("Encountered a merge conflict.");
             _mergeConflictFound = false;
         }
-//        saveGitlet();
+        saveGitlet();
     }
 
     private void checkoutFile(String filename, Commit givenBranchCommit) {
