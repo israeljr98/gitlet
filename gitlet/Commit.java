@@ -93,6 +93,14 @@ public class Commit implements Serializable {
         return _parent;
     }
 
+    public String getSecondParent() {
+        return _secondParent;
+    }
+
+    public void setSecondParent(String secondParentId) {
+        _secondParent = secondParentId;
+    }
+
     /** Returns the contents of this commit as a String formatted
      * as a log entry. */
     public String toString() {
@@ -117,6 +125,8 @@ public class Commit implements Serializable {
 
     /** SHA-1 identifier for this commit's parent. */
     private String _parent;
+
+    private String _secondParent;
 
     /** SHA-1 identifier for this commit. */
     private String _sha;

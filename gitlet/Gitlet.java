@@ -691,13 +691,43 @@ public class Gitlet implements Serializable {
         + "\n>>>>>>>";
     }
 
+//    public Set<String> findCommitAncestors(String commitId) {
+//        Commit commit = _commits.get(commitId);
+//        Set<String> ancestors = new HashSet<>();
+//        while (commit != null) {
+//            ancestors.add(commit.parent());
+//            commit = _commits.get(commit.parent());
+//        }
+//        return ancestors;
+//    }
+
     public Set<String> findCommitAncestors(String commitId) {
-        Commit commit = _commits.get(commitId);
         Set<String> ancestors = new HashSet<>();
-        while (commit != null) {
-            ancestors.add(commit.parent());
-            commit = _commits.get(commit.parent());
+        Stack<String> stack = new Stack<>();
+
+        stack.push(commitId);
+
+        while (!stack.isEmpty()) {
+            String currentId = stack.pop();
+            if (currentId == null || ancestors.contains(currentId)) {
+                continue;
+            }
+
+            ancestors.add(currentId);
+            Commit commit = _commits.get(currentId);
+            if (commit == null) {
+                continue;
+            }
+
+            // Push both parents onto the stack if they exist
+            if (commit.parent() != null) {
+                stack.push(commit.parent());
+            }
+            if (commit.getSecondParent() != null) { // Handling second parent (merge commit)
+                stack.push(commit.getSecondParent());
+            }
         }
+
         return ancestors;
     }
 
@@ -713,6 +743,57 @@ public class Gitlet implements Serializable {
         }
         return null;
     }
+
+    private void shortestPath(String fromCommitID) {
+        Commit fromCommit = _commits.get(fromCommitID);
+        Stack<String> ordering = new Stack<>();
+        HashSet<String> visited = new HashSet<>();
+        HashMap<String, Integer> paths = new HashMap<>();
+
+        topologicalSort(fromCommitID, visited, ordering);
+
+        while (!ordering.isEmpty()) {
+            String toCommitID = ordering.pop();
+
+        }
+
+    }
+
+    private void topologicalSort(String commitID,
+                                 HashSet<String> visited,
+                                 Stack<String> ordering) {
+        Commit commit = _commits.get(commitID);
+        while (commit != null) {
+            if (!visited.contains(commit.getSHA())) {
+                dfsCommit(commit.getSHA(), visited, ordering);
+            }
+            dfsCommit(commit.getSHA(), visited, ordering);
+            commit = _commits.get(commit.parent());
+        }
+    }
+
+    private void dfsCommit(String commitID,
+                           HashSet<String> v,
+                           Stack<String> visitedCommits) {
+        if (commitID == null || v.contains(commitID)) {
+            return;
+        }
+
+        v.add(commitID);
+
+        Commit commit = _commits.get(commitID);
+        if (commit == null) {
+            return;
+        }
+
+        dfsCommit(commit.parent(), v, visitedCommits);
+        if (commit.getSecondParent() != null) {
+            dfsCommit(commit.getSecondParent(), v, visitedCommits);
+        }
+        visitedCommits.push(commitID);
+
+    }
+
     public void setAncestors(String commitId) {
         Commit commit = _commits.get(commitId);
         commit.setAncestors(findCommitAncestors(commitId));
@@ -728,6 +809,7 @@ public class Gitlet implements Serializable {
     }
 
 
+    private HashMap<String, Integer> splitPointDistances = new HashMap<>();
 
     /**
      * The staging area in this Gitlet repository.
