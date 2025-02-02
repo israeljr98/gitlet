@@ -31,12 +31,12 @@ public class StagingArea implements Serializable {
     }
 
     /** Returns the stage where files are staged for addition. */
-    public HashMap<String, Blob> forAdd() {
+    public HashMap<String, Blob> forAddition() {
         return _stagedForAdd;
     }
 
     /** Returns the stage where files are staged for removal. */
-    public HashMap<String, Blob> forRem() {
+    public HashMap<String, Blob> forRemoval() {
         return _stagedForRem;
     }
 
