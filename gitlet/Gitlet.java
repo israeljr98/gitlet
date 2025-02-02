@@ -174,7 +174,7 @@ public class Gitlet implements Serializable {
         if (_stage.forAddition().containsKey(filename)) {
             _stage.forAddition().remove(filename);
         }
-        if (_hEAD.getFiles().containsKey(filename)) {
+        else if (_hEAD.getFiles().containsKey(filename)) {
             Blob rem = _hEAD.getFiles().get(filename);
             _stage.forRemoval().put(filename, rem);
             String CWD = System.getProperty("user.dir");
@@ -323,11 +323,10 @@ public class Gitlet implements Serializable {
         File f = new File(_currDir);
         ArrayList<String> names = new ArrayList<String>(Arrays.asList(f.list()));
         for (String file : names) {
-            if (_stage.sortedAdd().keySet().contains(file) ||
+            if (!(_stage.sortedAdd().keySet().contains(file) ||
                     _stage.sortedRem().containsKey(file) ||
-                    inCommit(file)) {
-                continue;
-            } else {
+                    inCommit(file) ||
+                    (new File(file)).isDirectory())) {
                 System.out.println(file);
             }
         }
@@ -679,16 +678,17 @@ public class Gitlet implements Serializable {
         byte[] newContents = conflictedFile.getBytes();
         File newFile = Utils.join(_currDir, filename);
         Utils.writeContents(newFile, newContents);
+        _mergeConflictFound = true;
     }
 
     public String createMergeConflictFile(Blob b1, Blob b2) {
         String currentBranchFileContents = b1.getBytes();
-        String givenBranchFileContents = b2.getBytes();
+        String givenBranchFileContents = b2 == null ? "" : b2.getBytes();
         return "<<<<<<< HEAD\n"
         + currentBranchFileContents
-        + "======="
+        + "\n=======\n"
         + givenBranchFileContents
-        + ">>>>>>>";
+        + "\n>>>>>>>";
     }
 
     public Set<String> findCommitAncestors(String commitId) {
