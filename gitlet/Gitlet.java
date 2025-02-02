@@ -566,9 +566,19 @@ public class Gitlet implements Serializable {
         String givenCommitID = _branches.get(branchName).getID();
         String splitPointId = findSplitPoint(_headCommit, givenCommitID);
 
+
+
         Commit currentBranchCommit = _commits.get(_headCommit);
         Commit givenBranchCommit = _commits.get(givenCommitID);
         Commit splitPointCommit = _commits.get(splitPointId);
+
+        if (currentBranchCommit.getAncestors().contains(givenBranchCommit.getSHA())) {
+            throw Utils.error("Given branch is an ancestor of the current branch.");
+        }
+        if (splitPointId.equals(_headCommit)) {
+            checkoutBranch(branchName);
+            throw Utils.error("Current branch fast-forwarded.");
+        }
 
         HashMap<String, Blob> currentBranchFiles = currentBranchCommit.getFiles();
         HashMap<String, Blob> givenBranchFiles = givenBranchCommit.getFiles();
@@ -591,13 +601,7 @@ public class Gitlet implements Serializable {
         allFiles.addAll(currentBranchFiles.keySet());
         allFiles.addAll(givenBranchFiles.keySet());
 
-        if (splitPointId.equals(givenCommitID)) {
-            throw Utils.error("Given branch is an ancestor of the current branch.");
-        }
-        if (splitPointId.equals(_headCommit)) {
-            checkoutBranch(branchName);
-            throw Utils.error("Current branch fast-forwarded.");
-        }
+
 
         for (String filename : allFiles) {
             boolean inSplitPoint = splitPointFiles.containsKey(filename);
@@ -727,6 +731,8 @@ public class Gitlet implements Serializable {
                 stack.push(commit.getSecondParent());
             }
         }
+
+        _commits.get(commitId).setAncestors(ancestors);
 
         return ancestors;
     }
