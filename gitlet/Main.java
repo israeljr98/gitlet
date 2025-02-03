@@ -61,6 +61,12 @@ public class Main {
                 g.reset(input2);
             } else if (input1.equals("merge")) {
                 g.merge(input2);
+            } else if (input1.equals("add-remote")) {
+                g.addRemote(input2, input3);
+            } else if (input1.equals("remote-rm")) {
+                g.removeRemote(input2);
+            } else if (input1.equals("push")) {
+                g.push(input2, input3);
             }
         } catch (GitletException ge) {
             System.out.println(ge.getMessage());

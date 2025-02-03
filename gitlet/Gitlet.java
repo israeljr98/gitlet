@@ -35,6 +35,7 @@ public class Gitlet implements Serializable {
             _stage = new StagingArea();
             _commits = new HashMap<>();
             _branches = new HashMap<>();
+            _remotes = new HashMap<>();
             _headbranch = "";
             _headCommit = "";
             _gitletExists = true;
@@ -49,6 +50,8 @@ public class Gitlet implements Serializable {
             _commits = Utils.readObject(Utils.join(_cwdPath, "commits"),
                     HashMap.class);
             _branches = Utils.readObject(Utils.join(_cwdPath, "branches"),
+                    HashMap.class);
+            _remotes = Utils.readObject(Utils.join(_cwdPath, "remotes"),
                     HashMap.class);
             _headbranch = Utils.readObject(Utils.join(_cwdPath, "headBranch"),
                     String.class);
@@ -80,6 +83,7 @@ public class Gitlet implements Serializable {
         Utils.writeObject(Utils.join(_cwdPath, "stage"), _stage);
         Utils.writeObject(Utils.join(_cwdPath, "headBranch"), _headbranch);
         Utils.writeObject(Utils.join(_cwdPath, "branches"), _branches);
+        Utils.writeObject(Utils.join(_cwdPath, "remotes"), _remotes);
         Utils.writeObject(Utils.join(_cwdPath, "headCommit"), _headCommit);
         Utils.writeObject(Utils.join(_cwdPath, "gitletExists"), _gitletExists);
         Utils.writeObject(Utils.join(_cwdPath, "HEAD"), _hEAD);
@@ -713,6 +717,66 @@ public class Gitlet implements Serializable {
         }
     }
 
+    /**
+     *
+     *
+     * REMOTE COMMANDS
+     *
+     *
+     */
+
+    public void addRemote(String name, String remoteLocation) {
+        if (!_initHappened) {
+            throw Utils.error("Not in an initialized Gitlet directory.");
+        }
+        if (_remotes.containsKey(name)) {
+            throw Utils.error("A remote with that name already exists.");
+        }
+
+        String remoteDirectory = remoteLocation.replace('/', File.separatorChar);
+
+        Remote newRemote = new Remote(name, remoteDirectory);
+        _remotes.put(name, newRemote);
+    }
+
+    public void removeRemote(String name) {
+        if (!_initHappened) {
+            throw Utils.error("Not in an initialized Gitlet directory.");
+        }
+        if (!_remotes.containsKey(name)) {
+            throw Utils.error("A remote with that name does not exist.");
+        }
+        _remotes.remove(name);
+    }
+
+    public void push(String remote, String remoteBranch) {
+        if (!_initHappened) {
+            throw Utils.error("Not in an initialized Gitlet directory.");
+        }
+        Remote givenRemote = _remotes.get(remote);
+        String pwd = givenRemote.getRemoteDirectory();
+        HashMap<String, Branch> remoteBranches = Utils.readObject(Utils.join(pwd, "branches"),
+                HashMap.class);
+        Branch rBranch = remoteBranches.get(remoteBranch);
+
+//        String commonAncestor = findSplitPoint();
+
+    }
+
+    public void pull(String remote, String remoteBranch) {
+        if (!_initHappened) {
+            throw Utils.error("Not in an initialized Gitlet directory.");
+        }
+
+    }
+
+    public void fetch(String remote, String remoteBranch) {
+        if (!_initHappened) {
+            throw Utils.error("Not in an initialized Gitlet directory.");
+        }
+
+    }
+
 
     /**
      * The staging area in this Gitlet repository.
@@ -749,6 +813,8 @@ public class Gitlet implements Serializable {
      * the name of a branch to its respective Branch object.
      */
     private HashMap<String, Branch> _branches;
+
+    private HashMap<String, Remote> _remotes;
 
     /** Used to check if a Gitlet repository has already been initiated. */
     private boolean _gitletExists;
