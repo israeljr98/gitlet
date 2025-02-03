@@ -31,7 +31,8 @@ public class Commit implements Serializable {
         SimpleDateFormat sdf =
                 new SimpleDateFormat("EEE MMM d kk:mm:ss YYYY ZZZ");
         _timestamp = sdf.format(c.getTime());
-
+        _ancestors = new HashSet<>();
+        _secondParent = null;
         setSHA();
     }
 
@@ -42,6 +43,8 @@ public class Commit implements Serializable {
         _parent = "";
         _files = new HashMap<>();
         _parentFiles = new HashMap<>();
+        _ancestors = new HashSet<>();
+        _secondParent = null;
         setSHA();
     }
 
@@ -101,6 +104,7 @@ public class Commit implements Serializable {
         _secondParent = secondParentId;
     }
 
+
     /** Returns the contents of this commit as a String formatted
      * as a log entry. */
     public String toString() {
@@ -118,7 +122,8 @@ public class Commit implements Serializable {
      * and their contents. */
     private HashMap<String, Blob> _parentFiles = new HashMap<>();
 
-    private Set<String> _ancestors = new HashSet<>();
+    /** This commit's ancestors. */
+    private Set<String> _ancestors;
 
     /** Denotes the time at which this commit was made. */
     private String _timestamp;
@@ -126,6 +131,7 @@ public class Commit implements Serializable {
     /** SHA-1 identifier for this commit's parent. */
     private String _parent;
 
+    /** SHA-1 ID of this commit's merge parent*/
     private String _secondParent;
 
     /** SHA-1 identifier for this commit. */

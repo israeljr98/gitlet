@@ -139,38 +139,11 @@ public class Gitlet implements Serializable {
      * If the head commit is tracking the file, remove it
      * from the working directory and stage it for removal.
      */
-//    public void rm(String filename) {
-//        if (!_initHappened) {
-//            throw Utils.error("Not in an initialized Gitlet directory.");
-//        }
-//        Blob rem = null;
-//
-//        if (_stage.forAddition().containsKey(filename)) {
-//            _stage.forAddition().remove(filename);
-//        }
-//        else if (_hEAD.getFiles().containsKey(filename)) {
-//            rem = _hEAD.getFiles().get(filename);
-//            _stage.forRemoval().put(filename, rem);
-//            File f = new File(_currDir, filename);
-//            restrictedDelete(f);
-//        }
-//        else if (!_hEAD.getFiles().containsKey(filename)) {
-//            rem = _hEAD.getFiles().get(filename);
-//            _stage.forRemoval().put(filename, rem);
-//            File f = Utils.join(_currDir, filename);
-//            Utils.restrictedDelete(f);
-//        }
-//        else {
-//            throw Utils.error("No reason to remove the file.");
-//        }
-//        saveGitlet();
-//    }
 
     public void rm(String filename) {
         if (!_initHappened) {
             throw Utils.error("Not in an initialized Gitlet directory.");
         }
-
         if (_stage.forAddition().containsKey(filename)) {
             _stage.forAddition().remove(filename);
         }
@@ -180,17 +153,9 @@ public class Gitlet implements Serializable {
             String CWD = System.getProperty("user.dir");
             File f = Utils.join(CWD, filename);
             Utils.restrictedDelete(f);
-
-
-        }
-//        else if (!_hEAD.getFiles().containsKey(filename)) {
-//            Blob rem = _hEAD.getFiles().get(filename);
-//            _stage.forRemoval().put(filename, rem);
-//        }
-        else {
+        } else {
             throw Utils.error("No reason to remove the file.");
         }
-
         saveGitlet();
     }
 
@@ -434,39 +399,6 @@ public class Gitlet implements Serializable {
         _stage.clean();
         saveGitlet();
     }
-//    public void checkoutBranch(String branch) {
-//        if (!_initHappened) {
-//            throw Utils.error("Not in an initialized Gitlet directory.");
-//        }
-//        if (!_branches.containsKey(branch)) {
-//            throw Utils.error("No such branch exists.");
-//        }
-//        if (branch.equals(_headbranch)) {
-//            throw Utils.error("No need to checkout the current branch.");
-//        }
-//        Branch desiredB = _branches.get(branch);
-//        Commit desiredC = _commits.get(desiredB.getID());
-//        List<String> filesinDir = Utils.plainFilenamesIn(_currDir);
-//        for (String file : filesinDir) {
-//            if (!_hEAD.getFiles().containsKey(file)
-//                    && desiredC.getFiles().containsKey(file)) {
-//                throw Utils.error("There is an untracked file in the way;"
-//                        + " delete it or add and commit it first.");
-//            }
-//            if (_hEAD.getFiles().containsKey(file)
-//                    && !desiredC.getFiles().containsKey(file)) {
-//                restrictedDelete(file);
-//            }
-//        }
-//        for (String name : desiredC.getFiles().keySet()) {
-//            checkoutFile(name, desiredC);
-//        }
-//        _headbranch = branch;
-//        _headCommit = desiredC.getSHA();
-//        _hEAD = desiredC;
-//        _stage.clean();
-//        saveGitlet();
-//    }
 
     /**
      * Creates a new branch with BRANCHNAME and points it
@@ -609,16 +541,15 @@ public class Gitlet implements Serializable {
             boolean inGivenBranch = givenBranchFiles.containsKey(filename);
 
             if (inSplitPoint) {
-                // Handle files present in the split point.
-//                handleSplitPointFile(filename, splitPointFiles, currentBranchFiles, givenBranchFiles);
                 String splitPointFileContents = splitPointFiles.get(filename).getSha();
+
+                // Case 1: File is in the current branch but deleted in the given branch
                 if (!inGivenBranch && inCurrentBranch) {
                     if (splitPointFileContents.equals(currentBranchFiles.get(filename).getSha())) {
                         _stage.forRemoval().put(filename, currentBranchFiles.get(filename));
                         String CWD = System.getProperty("user.dir");
                         File f = Utils.join(CWD, filename);
                         Utils.restrictedDelete(f);
-
                     } else {
                         handleMergeConflict(
                                 currentBranchFiles.get(filename),
@@ -626,17 +557,21 @@ public class Gitlet implements Serializable {
                                 filename);
                     }
                 }
+
+                // Case 2: File was modified in both branches...
                 if (inCurrentBranch && inGivenBranch) {
                     String currentBranchFileContents = currentBranchFiles.get(filename).getSha();
                     String givenBranchFileContents = givenBranchFiles.get(filename).getSha();
-
-                    // If file has been modified in the given branch...
-                    if (!splitPointFileContents.equals(givenBranchFileContents)) {
-                        // but NOT in the current branch...
+                    // ...identically → No action needed
+                    if (splitPointFileContents.equals(currentBranchFileContents)
+                            && splitPointFileContents.equals(givenBranchFileContents)) {
+                        // No change needed: same modification in both branches
+                    } else if (!splitPointFileContents.equals(givenBranchFileContents)) {
+                        // Given branch modified the file differently → checkout and stage it
                         if (splitPointFileContents.equals(currentBranchFileContents)) {
                             checkoutFile(filename, givenBranchCommit);
                             _stage.forAddition().put(filename, givenBranchFiles.get(filename));
-                        } else if (!currentBranchFileContents.equals(givenBranchFileContents)) {
+                        } else {
                             handleMergeConflict(
                                     currentBranchFiles.get(filename),
                                     givenBranchFiles.get(filename),
@@ -646,7 +581,6 @@ public class Gitlet implements Serializable {
                 }
             } else {
                 // Handle files not in the split point (new files).
-//                handleNewFile(filename, currentBranchFiles, givenBranchFiles);
                 if (!inCurrentBranch && inGivenBranch) {
                     checkoutFile(filename, givenBranchCommit);
                     _stage.forAddition().put(filename, givenBranchFiles.get(filename));
@@ -682,6 +616,8 @@ public class Gitlet implements Serializable {
         byte[] newContents = conflictedFile.getBytes();
         File newFile = Utils.join(_currDir, filename);
         Utils.writeContents(newFile, newContents);
+        Blob conflictedFileBlob = new Blob(filename, _currDir);
+        _stage.forAddition().put(filename, conflictedFileBlob);
         _mergeConflictFound = true;
     }
 
@@ -695,114 +631,77 @@ public class Gitlet implements Serializable {
         + "\n>>>>>>>";
     }
 
-//    public Set<String> findCommitAncestors(String commitId) {
-//        Commit commit = _commits.get(commitId);
-//        Set<String> ancestors = new HashSet<>();
-//        while (commit != null) {
-//            ancestors.add(commit.parent());
-//            commit = _commits.get(commit.parent());
-//        }
-//        return ancestors;
-//    }
-
-    public Set<String> findCommitAncestors(String commitId) {
+    public Set<String> findCommitAncestors(String commitId, Map<String, Integer> distanceMap) {
         Set<String> ancestors = new HashSet<>();
         Stack<String> stack = new Stack<>();
 
         stack.push(commitId);
+        distanceMap.put(commitId, 0);
 
         while (!stack.isEmpty()) {
             String currentId = stack.pop();
             if (currentId == null || ancestors.contains(currentId)) {
                 continue;
             }
-
             ancestors.add(currentId);
             Commit commit = _commits.get(currentId);
             if (commit == null) {
                 continue;
             }
-
-            // Push both parents onto the stack if they exist
-            if (commit.parent() != null) {
+            int currentDistance = distanceMap.get(currentId);
+            // Handle first parent
+            if (commit.parent() != null && !distanceMap.containsKey(commit.parent())) {
+                distanceMap.put(commit.parent(), currentDistance + 1);
                 stack.push(commit.parent());
             }
-            if (commit.getSecondParent() != null) { // Handling second parent (merge commit)
+            // Handle second parent (merge commit case)
+            if (commit.getSecondParent() != null && !distanceMap.containsKey(commit.getSecondParent())) {
+                distanceMap.put(commit.getSecondParent(), currentDistance + 1);
                 stack.push(commit.getSecondParent());
             }
         }
-
         _commits.get(commitId).setAncestors(ancestors);
-
         return ancestors;
     }
 
     private String findSplitPoint(String headCommitID, String givenCommitID) {
-        Set<String> headCommitAncestors = findCommitAncestors(headCommitID);
-        Commit givenCommit = _commits.get(givenCommitID);
-        while (givenCommit != null) {
-            if (headCommitAncestors.contains(givenCommit.parent())) {
-                return givenCommit.parent();
-            } else {
-                givenCommit = _commits.get(givenCommit.parent());
+        HashMap<String, Integer> distanceMap = new HashMap<>();
+        Set<String> headCommitAncestors = findCommitAncestors(headCommitID, distanceMap);
+        String closestSplitPoint = null;
+        int minDistance = Integer.MAX_VALUE;
+
+        Stack<String> stack = new Stack<>();
+        stack.push(givenCommitID);
+
+        while (!stack.isEmpty()) {
+            String currentId = stack.pop();
+            Commit commit = _commits.get(currentId);
+
+            if (commit == null) {
+                continue;
+            }
+
+            // If the commit exists in head's ancestors, check the distance
+            if (distanceMap.containsKey(currentId)) {
+                int distance = distanceMap.get(currentId);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestSplitPoint = currentId;
+                }
+            }
+
+            // Traverse the first parent
+            if (commit.parent() != null) {
+                stack.push(commit.parent());
+            }
+
+            // Traverse the second parent (merge commit case)
+            if (commit.getSecondParent() != null) {
+                stack.push(commit.getSecondParent());
             }
         }
-        return null;
-    }
 
-    private void shortestPath(String fromCommitID) {
-        Commit fromCommit = _commits.get(fromCommitID);
-        Stack<String> ordering = new Stack<>();
-        HashSet<String> visited = new HashSet<>();
-        HashMap<String, Integer> paths = new HashMap<>();
-
-        topologicalSort(fromCommitID, visited, ordering);
-
-        while (!ordering.isEmpty()) {
-            String toCommitID = ordering.pop();
-
-        }
-
-    }
-
-    private void topologicalSort(String commitID,
-                                 HashSet<String> visited,
-                                 Stack<String> ordering) {
-        Commit commit = _commits.get(commitID);
-        while (commit != null) {
-            if (!visited.contains(commit.getSHA())) {
-                dfsCommit(commit.getSHA(), visited, ordering);
-            }
-            dfsCommit(commit.getSHA(), visited, ordering);
-            commit = _commits.get(commit.parent());
-        }
-    }
-
-    private void dfsCommit(String commitID,
-                           HashSet<String> v,
-                           Stack<String> visitedCommits) {
-        if (commitID == null || v.contains(commitID)) {
-            return;
-        }
-
-        v.add(commitID);
-
-        Commit commit = _commits.get(commitID);
-        if (commit == null) {
-            return;
-        }
-
-        dfsCommit(commit.parent(), v, visitedCommits);
-        if (commit.getSecondParent() != null) {
-            dfsCommit(commit.getSecondParent(), v, visitedCommits);
-        }
-        visitedCommits.push(commitID);
-
-    }
-
-    public void setAncestors(String commitId) {
-        Commit commit = _commits.get(commitId);
-        commit.setAncestors(findCommitAncestors(commitId));
+        return closestSplitPoint;
     }
 
     public void printAncestors(String commitId) {
@@ -814,8 +713,6 @@ public class Gitlet implements Serializable {
         }
     }
 
-
-    private HashMap<String, Integer> splitPointDistances = new HashMap<>();
 
     /**
      * The staging area in this Gitlet repository.
