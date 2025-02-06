@@ -21,8 +21,11 @@ public class Gitlet implements Serializable {
      * Starts a Gitlet program. If a repository has already
      * been initialized, it loads its last saved state.
      */
-    public Gitlet() {
-        _currDir = System.getProperty("user.dir");
+    public Gitlet(String path) {
+        _currDir = path;
+        if (_currDir.contains(".gitlet")) {
+            _currDir = path.replace(".gitlet", "");
+        }
         _cwd = Utils.join(_currDir, ".gitlet");
         _cwdPath = _cwd.getPath();
         try {
@@ -43,7 +46,8 @@ public class Gitlet implements Serializable {
             _commands.addAll(Arrays.asList("init", "add", "commit",
                     "rm", "branch", "checkout", "merge", "status",
                     "log", "global-log", "reset", "rm-branch",
-                    "find"));
+                    "find", "add-remote", "rm-remote", "push",
+                    "fetch", "pull"));
         } else {
             _stage = Utils.readObject(Utils.join(_cwdPath, "stage"),
                     StagingArea.class);
@@ -733,10 +737,11 @@ public class Gitlet implements Serializable {
             throw Utils.error("A remote with that name already exists.");
         }
 
-        String remoteDirectory = remoteLocation.replace('/', File.separatorChar);
+//        String remoteDirectory = remoteLocation.replace('/', File.separatorChar);
 
-        Remote newRemote = new Remote(name, remoteDirectory);
+        Remote newRemote = new Remote(name, remoteLocation);
         _remotes.put(name, newRemote);
+        saveGitlet();
     }
 
     public void removeRemote(String name) {
@@ -747,34 +752,93 @@ public class Gitlet implements Serializable {
             throw Utils.error("A remote with that name does not exist.");
         }
         _remotes.remove(name);
+        saveGitlet();
     }
 
-    public void push(String remote, String remoteBranch) {
+    public void push(String remote, String remoteBranchName) {
         if (!_initHappened) {
             throw Utils.error("Not in an initialized Gitlet directory.");
         }
+        if (!_remotes.containsKey(remote)) {
+            throw Utils.error("A remote with that name does not exist.");
+        }
+
         Remote givenRemote = _remotes.get(remote);
-        String pwd = givenRemote.getRemoteDirectory();
-        HashMap<String, Branch> remoteBranches = Utils.readObject(Utils.join(pwd, "branches"),
-                HashMap.class);
-        Branch rBranch = remoteBranches.get(remoteBranch);
+        String remoteDir = givenRemote.getRemoteDirectory();
+        if (!new File(remoteDir).exists()) {
+            throw Utils.error("Remote directory not found.");
+        }
+        Gitlet remoteRepo = new Gitlet(remoteDir);
+        HashMap<String, Branch> remoteBranches = remoteRepo._branches;
+        if (!remoteBranches.containsKey(remoteBranchName)) {
+            remoteBranches.put(remoteBranchName, new Branch(remoteBranchName, _headCommit));
+        } else {
+            Branch remoteBranch = remoteBranches.get(remoteBranchName);
+            Map<String, Integer> localDistanceMap = new HashMap<>();
+            Set<String> localBranchAncestors = findCommitAncestors(_headCommit, localDistanceMap);
+            if (!localBranchAncestors.contains(remoteBranch.getID())) {
+                throw Utils.error("Please pull down remote changes before pushing.");
+            }
+            Map<String, Integer> remoteDistanceMap = new HashMap<>();
+            Set<String> remoteBranchAncestors = findCommitAncestors(remoteBranch.getID(), remoteDistanceMap);
+
+            List<String> missingCommits = new ArrayList<>();
+            for (String commitID : localBranchAncestors) {
+                if (!remoteBranchAncestors.contains(commitID)) {
+                    missingCommits.add(commitID);
+                }
+            }
+            missingCommits.sort(Comparator.comparingInt(localDistanceMap::get));
+            for (String commitID : missingCommits) {
+                remoteRepo._commits.put(commitID, _commits.get(commitID));
+            }
+            remoteBranches.put(remoteBranchName, new Branch(remoteBranchName, _headCommit));
+            remoteRepo.saveGitlet();
+        }
 
 //        String commonAncestor = findSplitPoint();
 
     }
 
     public void pull(String remote, String remoteBranch) {
-        if (!_initHappened) {
-            throw Utils.error("Not in an initialized Gitlet directory.");
-        }
+        fetch(remote, remoteBranch);
+        merge(remoteBranch);
 
     }
 
-    public void fetch(String remote, String remoteBranch) {
+    public void fetch(String remote, String remoteBranchName) {
         if (!_initHappened) {
             throw Utils.error("Not in an initialized Gitlet directory.");
         }
-
+        if (!_remotes.containsKey(remote)) {
+            throw Utils.error("A remote with that name does not exist.");
+        }
+        Remote givenRemote = _remotes.get(remote);
+        String remoteDir = givenRemote.getRemoteDirectory();
+        if (!new File(remoteDir).exists()) {
+            throw Utils.error("Remote directory not found.");
+        }
+        Gitlet remoteRepo = new Gitlet(remoteDir);
+        HashMap<String, Branch> remoteBranches = remoteRepo._branches;
+        HashMap<String, Commit> remoteCommits = remoteRepo._commits;
+        if (!remoteBranches.containsKey(remoteBranchName)) {
+            throw Utils.error("That remote does not have that branch.");
+        }
+        HashMap<String, Integer> remoteDistanceMap = new HashMap<>();
+        Set<String> remoteCommitAncestors = findCommitAncestors(remoteRepo._headCommit, remoteDistanceMap);
+        List<String> missingCommits = new ArrayList<>();
+        for (String commitID : remoteCommitAncestors) {
+            if (!_commits.containsKey(commitID)) {
+                missingCommits.add(commitID);
+            }
+        }
+        missingCommits.sort(Comparator.comparingInt(remoteDistanceMap::get));
+        for (String commitID : missingCommits) {
+            _commits.put(commitID, remoteCommits.get(commitID));
+        }
+        Branch fetchBranch = new Branch(remote + "/" + remoteBranchName, remoteRepo._headCommit);
+        _branches.put(remote + "/" + remoteBranchName, fetchBranch);
+        saveGitlet();
     }
 
 
@@ -824,7 +888,7 @@ public class Gitlet implements Serializable {
 
     private boolean _mergeConflictFound = false;
 
-    /** The home directory of this computer. */
+    /** Directory where this Gitlet repo is located. */
     private String _currDir;
 
     /** Holds all valid Gitlet commands. */

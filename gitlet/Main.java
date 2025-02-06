@@ -8,7 +8,7 @@ public class Main {
     /** Usage: java gitlet.Main ARGS, where ARGS contains
      *  <COMMAND> <OPERAND> .... */
     public static void main(String... args) {
-        Gitlet g = new Gitlet();
+        Gitlet g = new Gitlet(System.getProperty("user.dir"));
         String input1 = null; String input2 = null;
         String input3 = null; String input4 = null;
         try {
@@ -63,10 +63,14 @@ public class Main {
                 g.merge(input2);
             } else if (input1.equals("add-remote")) {
                 g.addRemote(input2, input3);
-            } else if (input1.equals("remote-rm")) {
+            } else if (input1.equals("rm-remote")) {
                 g.removeRemote(input2);
             } else if (input1.equals("push")) {
                 g.push(input2, input3);
+            } else if (input1.equals("fetch")) {
+                g.fetch(input2, input3);
+            } else if (input1.equals("pull")) {
+                g.pull(input2, input3);
             }
         } catch (GitletException ge) {
             System.out.println(ge.getMessage());

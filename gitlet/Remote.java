@@ -1,6 +1,8 @@
 package gitlet;
 
-public class Remote {
+import java.io.Serializable;
+
+public class Remote implements Serializable {
 
     public Remote(String name, String remoteDirectory) {
 //        this.url = url;
