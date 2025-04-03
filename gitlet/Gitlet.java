@@ -290,11 +290,26 @@ public class Gitlet implements Serializable {
             System.out.println(rem);
         }
         System.out.println();
-        System.out.println("=== Modifications Not Staged For Commit ===");
-        System.out.println();
-        System.out.println("=== Untracked Files ===");
+
         File f = new File(_currDir);
         ArrayList<String> names = new ArrayList<String>(Arrays.asList(f.list()));
+
+        System.out.println("=== Modifications Not Staged For Commit ===");
+        for (String filename : names) {
+            System.out.println(filename);
+            Blob fileContents = new Blob(filename, _currDir);
+            if (_hEAD.getFiles().containsKey(filename) ||
+                    (_stage.forAddition().containsKey(filename)
+                            && _stage.forAddition().get(filename).getSha().equals(fileContents.getSha())) ||
+                    (_stage.forAddition().containsKey(filename)) ||
+                    (!_stage.forRemoval().containsKey(filename) && _hEAD.getFiles().containsKey(filename))
+            ) {
+                System.out.println(filename);
+            }
+        }
+        System.out.println();
+        System.out.println("=== Untracked Files ===");
+
         for (String file : names) {
             if (!(_stage.sortedAdd().keySet().contains(file) ||
                     _stage.sortedRem().containsKey(file) ||
@@ -825,7 +840,7 @@ public class Gitlet implements Serializable {
             throw Utils.error("That remote does not have that branch.");
         }
         HashMap<String, Integer> remoteDistanceMap = new HashMap<>();
-        Set<String> remoteCommitAncestors = findCommitAncestors(remoteRepo._headCommit, remoteDistanceMap);
+        Set<String> remoteCommitAncestors = remoteRepo.findCommitAncestors(remoteRepo._headCommit, remoteDistanceMap);
         List<String> missingCommits = new ArrayList<>();
         for (String commitID : remoteCommitAncestors) {
             if (!_commits.containsKey(commitID)) {
