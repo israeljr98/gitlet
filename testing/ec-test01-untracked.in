@@ -2,26 +2,16 @@
 I prelude1.inc
 + f.txt wug.txt
 > status
-===
-Branches
-===
+=== Branches ===
 *master
 
-===
-Staged Files
-===
+=== Staged Files ===
 
-===
-Removed Files
-===
+=== Removed Files ===
 
-===
-Modifications Not Staged For Commit
-===
+=== Modifications Not Staged For Commit ===
 
-===
-Untracked Files
-===
+=== Untracked Files ===
 f.txt
 
 <<<
@@ -31,50 +21,31 @@ f.txt
 <<<
 + f.txt notwug.txt
 > status
-===
-Branches
-===
+=== Branches ===
 *master
 
-===
-Staged Files
-===
+=== Staged Files ===
 
-===
-Removed Files
-===
+=== Removed Files ===
 
-===
-Modifications Not Staged For Commit
-===
+=== Modifications Not Staged For Commit ===
 f.txt (modified)
 
-===
-Untracked Files
-===
+=== Untracked Files ===
 
 <<<
 - f.txt
 > status
-===
-Branches
-===
+=== Branches ===
 *master
 
-===
-Staged Files
-===
+=== Staged Files ===
 
-===
-Removed Files
-===
+=== Removed Files ===
 
-===
-Modifications Not Staged For Commit
-===
+=== Modifications Not Staged For Commit ===
 f.txt (deleted)
 
-===
-Untracked Files
-===
+=== Untracked Files ===
+
 <<<

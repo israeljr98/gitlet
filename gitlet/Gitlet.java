@@ -293,29 +293,59 @@ public class Gitlet implements Serializable {
 
         File f = new File(_currDir);
         ArrayList<String> names = new ArrayList<String>(Arrays.asList(f.list()));
+//        System.out.println("Names List: " + names);
 
+        Set<String> allFiles = new TreeSet<>();
+        allFiles.addAll(names);                     // working dir
+        allFiles.addAll(_hEAD.getFiles().keySet()); // tracked files
+        allFiles.addAll(_stage.forAddition().keySet());
         System.out.println("=== Modifications Not Staged For Commit ===");
-        for (String filename : names) {
-            System.out.println(filename);
-            Blob fileContents = new Blob(filename, _currDir);
-            if (_hEAD.getFiles().containsKey(filename) ||
-                    (_stage.forAddition().containsKey(filename)
-                            && _stage.forAddition().get(filename).getSha().equals(fileContents.getSha())) ||
-                    (_stage.forAddition().containsKey(filename)) ||
-                    (!_stage.forRemoval().containsKey(filename) && _hEAD.getFiles().containsKey(filename))
-            ) {
-                System.out.println(filename);
+        for (String filename : allFiles) {
+            File file = Utils.join(f, filename);
+            if (file.isDirectory()) {
+                continue;
+            }
+
+            boolean exists = file.exists();
+            byte[] fileContents = null;
+            if (exists) {
+                fileContents = Utils.readContents(file);
+            }
+
+            if (_hEAD.getFiles().containsKey(filename)
+                    && !_stage.forAddition().containsKey(filename)
+                    && exists
+                    && !Arrays.equals(_hEAD.getFiles().get(filename).getContents(), fileContents)) {
+                System.out.println(filename + " (modified)");
+
+            } else if (_stage.forAddition().containsKey(filename)
+                    && exists
+                    && !Arrays.equals(_stage.forAddition().get(filename).getContents(), fileContents)) {
+                System.out.println(filename + " (modified)");
+
+            } else if (_stage.forAddition().containsKey(filename)
+                    && !exists) {
+                System.out.println(filename + " (deleted)");
+
+            } else if (_hEAD.getFiles().containsKey(filename)
+                    && !_stage.forRemoval().containsKey(filename)
+                    && !exists) {
+                System.out.println(filename + " (deleted)");
             }
         }
         System.out.println();
         System.out.println("=== Untracked Files ===");
 
-        for (String file : names) {
-            if (!(_stage.sortedAdd().keySet().contains(file) ||
-                    _stage.sortedRem().containsKey(file) ||
-                    inCommit(file) ||
-                    (new File(file)).isDirectory())) {
-                System.out.println(file);
+        for (String filename : names) {
+            if (Utils.join(f, filename).isDirectory()) {
+                continue;
+            }
+            if ((!_stage.forAddition().containsKey(filename))
+                && (!_hEAD.getFiles().containsKey(filename))
+                && (!_stage.forRemoval().containsKey(filename))
+                && (new File(filename).isFile())
+                && (!(new File(filename).isDirectory()))) {
+                System.out.println(filename);
             }
         }
         System.out.println();

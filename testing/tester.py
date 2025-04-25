@@ -403,7 +403,7 @@ if __name__ == "__main__":
     if ON_WINDOWS:
         environ['CLASSPATH'] = "{};{}".format(prog_dir, environ['CLASSPATH'])
     else:
-        environ['CLASSPATH'] = "{}:{}".format(prog_dir, environ['CLASSPATH'])
+        environ['CLASSPATH'] = "{}:{}".format(prog_dir, environ.get('CLASSPATH', ''))
         GITLET_COMMAND = 'exec ' + GITLET_COMMAND
 
     num_tests = len(files)
