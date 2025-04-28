@@ -18,7 +18,13 @@ public class Remote implements Serializable {
         return this.name;
     }
 
+    public Branch getBranch() {
+        return branch;
+    }
 
+    public void setBranch(Branch branch) {
+        this.branch = branch;
+    }
 
     private String url;
 

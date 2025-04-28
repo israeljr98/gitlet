@@ -12,6 +12,7 @@ import static gitlet.Utils.restrictedDelete;
  * 
  * @author Israel Rodriguez
  */
+@SuppressWarnings("DuplicatedCode")
 public class Gitlet implements Serializable {
 
     /** For serializing purposes. */
@@ -524,6 +525,7 @@ public class Gitlet implements Serializable {
             Utils.writeContents(newFile, rContents);
         }
         _hEAD = reset;
+        _headCommit = reset.getSHA();
         _branches.get(_headbranch).setID(reset.getSHA());
         _stage.clean();
         saveGitlet();
@@ -837,7 +839,10 @@ public class Gitlet implements Serializable {
             for (String commitID : missingCommits) {
                 remoteRepo._commits.put(commitID, _commits.get(commitID));
             }
-            remoteBranches.put(remoteBranchName, new Branch(remoteBranchName, _headCommit));
+
+//            remoteBranches.put(remoteBranchName, new Branch(remoteBranchName, _headCommit));
+            remoteRepo._hEAD = _hEAD;
+            remoteRepo._headCommit = _headCommit;
             remoteRepo.saveGitlet();
         }
 
@@ -847,7 +852,7 @@ public class Gitlet implements Serializable {
 
     public void pull(String remote, String remoteBranch) {
         fetch(remote, remoteBranch);
-        merge(remoteBranch);
+        merge(remote + '/' + remoteBranch);
 
     }
 
