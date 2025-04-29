@@ -6,33 +6,38 @@ public class Remote implements Serializable {
 
     public Remote(String name, String remoteDirectory) {
 //        this.url = url;
-        this.name = name;
-        this.remoteDirectory = remoteDirectory;
+        this._name = name;
+        this._remoteDirectory = remoteDirectory;
     }
 
     public String getRemoteDirectory() {
-        return this.remoteDirectory;
+        return this._remoteDirectory;
     }
 
     public String getName() {
-        return this.name;
+        return this._name;
     }
 
     public Branch getBranch() {
-        return branch;
+        return _branch;
     }
 
     public void setBranch(Branch branch) {
-        this.branch = branch;
+        this._branch = branch;
     }
 
-    private String url;
+    /**  */
+    public boolean isOnlineRemote() {
+        return _remoteDirectory.startsWith("http://") || _remoteDirectory.startsWith("https://");
+    }
 
-    private Branch branch;
+    private String _url;
 
-    private String remoteDirectory;
+    private Branch _branch;
 
-    private String name;
+    private String _remoteDirectory;
+
+    private String _name;
 
 
 }

@@ -1,9 +1,10 @@
 package gitlet;
 
-import java.io.File;
+import java.io.*;
 
-import java.io.Serializable;
 import java.util.*;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import static gitlet.Utils.restrictedDelete;
 
@@ -812,39 +813,45 @@ public class Gitlet implements Serializable {
 
         Remote givenRemote = _remotes.get(remote);
         String remoteDir = givenRemote.getRemoteDirectory();
-        if (!new File(remoteDir).exists()) {
-            throw Utils.error("Remote directory not found.");
-        }
-        Gitlet remoteRepo = new Gitlet(remoteDir);
-        HashMap<String, Branch> remoteBranches = remoteRepo._branches;
-        if (!remoteBranches.containsKey(remoteBranchName)) {
-            remoteBranches.put(remoteBranchName, new Branch(remoteBranchName, _headCommit));
-        } else {
-            Branch remoteBranch = remoteBranches.get(remoteBranchName);
-            Map<String, Integer> localDistanceMap = new HashMap<>();
-            Set<String> localBranchAncestors = findCommitAncestors(_headCommit, localDistanceMap);
-            if (!localBranchAncestors.contains(remoteBranch.getID())) {
-                throw Utils.error("Please pull down remote changes before pushing.");
-            }
-            Map<String, Integer> remoteDistanceMap = new HashMap<>();
-            Set<String> remoteBranchAncestors = findCommitAncestors(remoteBranch.getID(), remoteDistanceMap);
 
-            List<String> missingCommits = new ArrayList<>();
-            for (String commitID : localBranchAncestors) {
-                if (!remoteBranchAncestors.contains(commitID)) {
-                    missingCommits.add(commitID);
+        if (givenRemote.isOnlineRemote()) {
+
+        } else {
+            if (!new File(remoteDir).exists()) {
+                throw Utils.error("Remote directory not found.");
+            }
+            Gitlet remoteRepo = new Gitlet(remoteDir);
+            HashMap<String, Branch> remoteBranches = remoteRepo._branches;
+            if (!remoteBranches.containsKey(remoteBranchName)) {
+                remoteBranches.put(remoteBranchName, new Branch(remoteBranchName, _headCommit));
+            } else {
+                Branch remoteBranch = remoteBranches.get(remoteBranchName);
+                Map<String, Integer> localDistanceMap = new HashMap<>();
+                Set<String> localBranchAncestors = findCommitAncestors(_headCommit, localDistanceMap);
+                if (!localBranchAncestors.contains(remoteBranch.getID())) {
+                    throw Utils.error("Please pull down remote changes before pushing.");
                 }
-            }
-            missingCommits.sort(Comparator.comparingInt(localDistanceMap::get));
-            for (String commitID : missingCommits) {
-                remoteRepo._commits.put(commitID, _commits.get(commitID));
-            }
+                Map<String, Integer> remoteDistanceMap = new HashMap<>();
+                Set<String> remoteBranchAncestors = findCommitAncestors(remoteBranch.getID(), remoteDistanceMap);
+
+                List<String> missingCommits = new ArrayList<>();
+                for (String commitID : localBranchAncestors) {
+                    if (!remoteBranchAncestors.contains(commitID)) {
+                        missingCommits.add(commitID);
+                    }
+                }
+                missingCommits.sort(Comparator.comparingInt(localDistanceMap::get));
+                for (String commitID : missingCommits) {
+                    remoteRepo._commits.put(commitID, _commits.get(commitID));
+                }
 
 //            remoteBranches.put(remoteBranchName, new Branch(remoteBranchName, _headCommit));
-            remoteRepo._hEAD = _hEAD;
-            remoteRepo._headCommit = _headCommit;
-            remoteRepo.saveGitlet();
+                remoteRepo._hEAD = _hEAD;
+                remoteRepo._headCommit = _headCommit;
+                remoteRepo.saveGitlet();
+            }
         }
+
 
 //        String commonAncestor = findSplitPoint();
 
@@ -889,6 +896,24 @@ public class Gitlet implements Serializable {
         Branch fetchBranch = new Branch(remote + "/" + remoteBranchName, remoteRepo._headCommit);
         _branches.put(remote + "/" + remoteBranchName, fetchBranch);
         saveGitlet();
+    }
+
+    public void zipGitlet() {
+        File zipFile = Utils.join(_cwdPath, "gitlet.zip");
+        try (ZipOutputStream zippedGitlet = new ZipOutputStream(new FileOutputStream(zipFile))) {
+            for (File f : _cwd.listFiles()) {
+                if (f.getName().equals("gitlet.zip")) {
+                    continue; // Skip the gitlet.zip file itself
+                }
+                ZipEntry entry = new ZipEntry(f.getName());
+                zippedGitlet.putNextEntry(entry);
+                byte[] contents = Utils.readContents(f);
+                zippedGitlet.write(contents);
+                zippedGitlet.closeEntry();
+            }
+        } catch (IOException e) {
+            throw Utils.error("Failed while attempting to zip .gitlet: " + e.getMessage());
+        }
     }
 
 
